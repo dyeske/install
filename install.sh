@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/usr/bin/env bash
 set -e
 has() {
   type "$1" > /dev/null 2>&1
@@ -64,6 +64,7 @@ start() {
     *armv6l*) arch=armv6l ;;
     *armv7l*) arch=armv7l ;;
     *x86_64*) arch=x64 ;;
+    *amd64*) arch=x64 ;;
     *i*86*) arch=x86 ;;
     *)
       echo "Unsupported Architecture: $os $arch" 1>&2
@@ -73,9 +74,10 @@ start() {
   
   if [ "$arch" == "x64" ] && [[ $HOSTTYPE == i*86 ]]; then
     arch=x86 # check if 32 bit bash is installed on 64 bit kernel
+    echo "fuck this"
   fi
   
-  if [ "$os" != "linux" ] && [ "$os" != "darwin" ]; then
+  if [ "$os" != "linux" ] && [ "$os" != "darwin" ] && [ "$os" != "freebsd" ]; then
     echo "Unsupported Platform: $os $arch" 1>&2
     exit 1
   fi
@@ -121,6 +123,7 @@ start() {
       while [ $# -ne 0 ]
       do
         if [ "$1" == "tmux" ]; then
+          echo "tmux_install"
           cd "$C9_DIR"
           time tmux_install $os $arch
           shift
@@ -130,7 +133,7 @@ start() {
         time eval ${1} $os $arch
         shift
       done
-      
+     
       # finalize
       pushd "$C9_DIR"/node_modules/.bin
       for FILE in "$C9_DIR"/node_modules/.bin/*; do
@@ -151,7 +154,8 @@ start() {
     
     "base" )
       echo "Installing base packages. Use --help for more options"
-      start install node tmux_install nak ptyjs collab
+      # start install node tmux_install nak ptyjs collab
+      start install node tmux_install
     ;;
     
     * )
@@ -255,17 +259,23 @@ node(){
   rm -rf node 
   rm -rf node.tar.gz
   
-  echo :Installing Node $NODE_VERSION
-  
-  DOWNLOAD https://nodejs.org/dist/"$NODE_VERSION/node-$NODE_VERSION-$1-$2.tar.gz" node.tar.gz
+  echo :Installing Node $NODE_VERSION $1 $2
+ 
+  # sudo pkg install node6
+  #
+  # return
+  # 
+  # DOWNLOAD https://nodejs.org/dist/"$NODE_VERSION/node-$NODE_VERSION-$1-$2.tar.gz" node.tar.gz
+  DOWNLOAD http://nodejs.org/dist/v4.8.7/node-v4.8.7-linux-x64.tar.gz node.tar.gz
+  # http://nodejs.org/dist/v4.8.7/node-v4.8.7-linux-x64.tar.gz
+
   tar xzf node.tar.gz
-  mv "node-$NODE_VERSION-$1-$2" node
+  mv "node-$NODE_VERSION-linux-x64" node
   rm -f node.tar.gz
 
   # use local npm cache
-  "$NPM" config -g set cache  "$C9_DIR/tmp/.npm"
+  "$NPM" config -g set cache "$C9_DIR/tmp/.npm"
   ensure_local_gyp
-
 }
 
 compile_tmux(){
@@ -275,7 +285,7 @@ compile_tmux(){
   rm libevent-2.0.21-stable.tar.gz
   cd libevent-2.0.21-stable
   echo ":Configuring Libevent"
-  ./configure --prefix="$C9_DIR/local"
+  ./configure CC=/usr/local/libexec/ccache/world/cc CXX=/usr/local/libexec/ccache/world/c++ --prefix="$C9_DIR/local" 
   echo ":Compiling Libevent"
   make
   echo ":Installing libevent"
@@ -288,6 +298,7 @@ compile_tmux(){
   cd ncurses-5.9
   echo ":Configuring Ncurses"
   CPPFLAGS=-P ./configure --prefix="$C9_DIR/local" --without-tests --without-cxx
+  CFLAGS="CC=/usr/local/libexec/ccache/world/cc CXX=/usr/local/libexec/ccache/world/c++"
   echo ":Compiling Ncurses"
   make
   echo ":Installing Ncurses"
@@ -299,7 +310,7 @@ compile_tmux(){
   rm tmux-1.9.tar.gz
   cd tmux-1.9
   echo ":Configuring Tmux"
-  ./configure CFLAGS="-I$C9_DIR/local/include -I$C9_DIR/local/include/ncurses" CPPFLAGS="-I$C9_DIR/local/include -I$C9_DIR/local/include/ncurses" LDFLAGS="-static-libgcc -L$C9_DIR/local/lib" LIBEVENT_CFLAGS="-I$C9_DIR/local/include" LIBEVENT_LIBS="-static -L$C9_DIR/local/lib -levent" LIBS="-L$C9_DIR/local/lib/ncurses -lncurses" --prefix="$C9_DIR/local"
+  ./configure CC=/usr/local/libexec/ccache/world/cc CXX=/usr/local/libexec/ccache/world/c++ CFLAGS="-I$C9_DIR/local/include -I$C9_DIR/local/include/ncurses" CPPFLAGS="-I$C9_DIR/local/include -I$C9_DIR/local/include/ncurses" LDFLAGS="-static-libgcc -L$C9_DIR/local/lib" LIBEVENT_CFLAGS="-I$C9_DIR/local/include" LIBEVENT_LIBS="-static -L$C9_DIR/local/lib -levent" LIBS="-L$C9_DIR/local/lib/ncurses -lncurses" --prefix="$C9_DIR/local"
   echo ":Compiling Tmux"
   make
   echo ":Installing Tmux"
